@@ -126,3 +126,11 @@ button {
     letter-spacing: 2px;
     color: red
 }
+
+.red {
+    color: red;
+}
+
+button span {
+    color: red;
+}

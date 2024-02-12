@@ -1,7 +1,7 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, button, div, h1, h2, input, node, text)
+import Html exposing (Html, button, div, h1, h2, input, node, span, text)
 import Html.Attributes exposing (class, href, rel, value)
 import Html.Events exposing (onClick, onInput)
 import SongNames exposing (containsLetters, missingLetters, removeLetters, sanitize)
@@ -18,14 +18,17 @@ type alias SelectedPhrase =
 
 
 type alias Model =
-    { songs : List SelectedPhrase, nextPhraseId : Int, letters : String, missingLetters : String, phrases : List String }
+    { songs : List SelectedPhrase
+    , nextPhraseId : Int
+    , letters : String
+    , phrases : List String
+    }
 
 
 init : Model
 init =
     { nextPhraseId = 3
-    , letters = "123lgb"
-    , missingLetters = ""
+    , letters = ""
     , songs = []
     , phrases = SongNames.songs
     }
@@ -60,13 +63,6 @@ update msg model =
             }
 
         RemoveSong phraseToDelete ->
-            let
-                missingLetters =
-                    removeLetters phraseToDelete.name model.letters
-
-                freedUpLetters =
-                    removeLetters phraseToDelete.name missingLetters
-            in
             { model
                 | songs = List.filter (doesNotMatch phraseToDelete) model.songs
             }
@@ -94,7 +90,7 @@ view model =
             List.filter (\phrase -> containsLetters phrase remainingLetters) model.phrases
 
         unmatchedPhrases =
-            List.filter (\phrase -> not <| containsLetters phrase model.letters) model.phrases
+            List.filter (\phrase -> not <| containsLetters phrase remainingLetters) model.phrases
 
         missingLetters =
             removeLetters usedLetters model.letters
@@ -111,15 +107,18 @@ view model =
         , h2 [] [ text "Selected Songs:" ]
         , div [ class "songs" ]
             (List.map
+                {- passing in the missing letters here means that a single
+                   missing letter is highlighted in every word it's used in
+                   (i.e. if you're only one 'e' letter short, every instance
+                   will still be red
+                -}
                 (\song ->
-                    div [ class "phrase" ]
-                        [ button [ onClick (RemoveSong song) ] [ text song.name ]
-                        ]
+                    viewRemoveButton missingLetters song
                 )
                 model.songs
             )
         , h2 [] [ text "Available Songs:" ]
-        , div [ class "songs" ] (List.map (viewPhrase remainingLetters) matchedPhrases)
+        , div [ class "songs" ] (List.map (viewAddButton remainingLetters) matchedPhrases)
         , h2 [] [ text "Used letters:" ]
         , div [ class "remaining-letters" ] [ text usedLetters ]
         , div
@@ -137,18 +136,44 @@ view model =
                 ]
             ]
         , h2 [] [ text "Unavailable Songs:" ]
-        , div [ class "songs" ] (List.map (viewPhrase remainingLetters) unmatchedPhrases)
+        , div [ class "songs" ] (List.map (viewAddButton remainingLetters) unmatchedPhrases)
         , div [ class "footer" ] [ text "o/" ]
         ]
 
 
-viewPhrase : String -> String -> Html Msg
-viewPhrase letters phrase =
+
+{-
+   Show a button that removes the specified song
+
+   Missing letters are hightlighted in red.
+-}
+
+
+viewRemoveButton : String -> SelectedPhrase -> Html Msg
+viewRemoveButton missingLetters song =
+    let
+        phrase =
+            song.name
+    in
+    div [ class "phrase remove" ]
+        [ button
+            [ onClick (RemoveSong song)
+            ]
+            (viewPhraseWithMissingLetters phrase missingLetters)
+        ]
+
+
+viewAddButton : String -> String -> Html Msg
+viewAddButton letters phrase =
     let
         available =
             containsLetters (sanitize phrase) letters
+
+        -- potential optimization: skip if no missing letters
+        missingLetters =
+            removeLetters phrase letters
     in
-    div [ class "phrases" ]
+    div [ class "phrase add" ]
         [ button
             [ class
                 (if available then
@@ -159,21 +184,79 @@ viewPhrase letters phrase =
                 )
             , onClick (AddSong phrase)
             ]
-            [ text
-                (phrase
-                    ++ (if available then
-                            ""
-
-                        else
-                            let
-                                missingLetters =
-                                    removeLetters phrase letters
-                            in
-                            " | " ++ missingLetters
-                       )
-                )
-            ]
+            (viewPhraseWithMissingLetters phrase missingLetters)
         ]
+
+
+viewAddPhraseButton : String -> String -> Html Msg
+viewAddPhraseButton letters phrase =
+    let
+        available =
+            containsLetters (sanitize phrase) letters
+
+        -- potential optimization: skip if no missing letters
+        missingLetters =
+            removeLetters phrase letters
+    in
+    div [ class "phrase" ]
+        [ button
+            [ class
+                (if available then
+                    "available"
+
+                 else
+                    "unavailable"
+                )
+            , onClick (AddSong phrase)
+            ]
+            -- potential optimization: skip if no missing letters
+            (viewPhraseWithMissingLetters phrase missingLetters)
+        ]
+
+
+viewPhrase : String -> String -> Html Msg
+viewPhrase letters phrase =
+    let
+        available =
+            containsLetters (sanitize phrase) letters
+
+        -- potential optimization: skip if no missing letters
+        missingLetters =
+            removeLetters phrase letters
+    in
+    div [ class "phrase" ]
+        (viewPhraseWithMissingLetters phrase missingLetters)
+
+
+
+{- Wrap missing letters in span elements to target them for styling.
+   There must be a better way to do it, but this implementation breaks
+   down every character into it's own text element
+-}
+
+
+viewPhraseWithMissingLetters :
+    String
+    -> String
+    -> List (Html Msg)
+viewPhraseWithMissingLetters phrase missingLetters =
+    case String.uncons phrase of
+        Nothing ->
+            []
+
+        Just ( c, rest ) ->
+            let
+                currentLetter =
+                    String.fromChar c
+
+                missing =
+                    sanitize missingLetters
+            in
+            if String.contains (sanitize currentLetter) (sanitize missingLetters) && missing /= "" then
+                span [ class "red" ] [ text currentLetter ] :: viewPhraseWithMissingLetters rest (removeLetters missingLetters currentLetter)
+
+            else
+                text currentLetter :: viewPhraseWithMissingLetters rest missingLetters
 
 
 
