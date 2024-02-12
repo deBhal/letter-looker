@@ -20,9 +20,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+---
 
 This was originally based on https://github.com/evancz/elm-todomvc
-and still includes code under that repository's licence:
+and still includes code under that repository's licence which is preserved
+here as required:
 
 Copyright (c) 2014-2016, Evan Czaplicki
 All rights reserved.
